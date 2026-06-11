@@ -96,11 +96,13 @@ def run():
             household = payload["household"]
             value_kwh = payload["value_kwh"]
 
-            if detector.detect(household, value_kwh):
+            upper_fence = detector.detect(household, value_kwh)
+            if upper_fence is not None:
                 event = PeakEvent(
                     room=household,
                     datetime=payload["utc_timestamp"],
-                    level=value_kwh,
+                    value_kwh=value_kwh,
+                    upper_fence=upper_fence,
                 )
                 producer.produce(
                     settings.output_topic,

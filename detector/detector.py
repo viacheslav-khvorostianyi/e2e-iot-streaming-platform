@@ -27,10 +27,11 @@ class IQRDetector:
             self._windows[household] = deque(maxlen=self._window_size)
         return self._windows[household]
 
-    def detect(self, household: str, value: float) -> bool:
+    def detect(self, household: str, value: float) -> float | None:
+        """Return upper_fence if value is a peak, else None."""
         window = self._get_window(household)
 
-        is_peak = False
+        result = None
         if len(window) >= self._min_window:
             arr = np.array(window, dtype=np.float64)
             q1, q3 = np.percentile(arr, [25, 75])
@@ -38,7 +39,7 @@ class IQRDetector:
             upper_fence = q3 + self._sigma * iqr
 
             if value > upper_fence:
-                is_peak = True
+                result = upper_fence
                 log.debug(
                     "peak_detected",
                     household=household,
@@ -50,4 +51,4 @@ class IQRDetector:
                 )
 
         window.append(value)
-        return is_peak
+        return result

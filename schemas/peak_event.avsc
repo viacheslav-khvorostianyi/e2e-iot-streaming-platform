@@ -4,8 +4,9 @@
   "namespace": "com.opsd.streaming",
   "doc": "Consumption peak detected by the IQR-based outlier detector",
   "fields": [
-    {"name": "room",     "type": "string", "doc": "Household identifier where the peak was detected"},
-    {"name": "datetime", "type": "string", "doc": "ISO-8601 UTC timestamp of the reading that triggered the peak"},
-    {"name": "level",    "type": "double", "doc": "grid_import value (kWh) that exceeded the upper Tukey fence"}
+    {"name": "room",        "type": "string", "doc": "Household identifier where the peak was detected"},
+    {"name": "datetime",    "type": "string", "doc": "ISO-8601 UTC timestamp of the reading that triggered the peak"},
+    {"name": "value_kwh",   "type": "double", "doc": "grid_import value (kWh) that exceeded the upper Tukey fence"},
+    {"name": "upper_fence", "type": "double", "doc": "Q3 + sigma * IQR at detection time"}
   ]
 }

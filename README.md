@@ -88,8 +88,9 @@ Kafka UI is available at **http://localhost:8080**.
 ```json
 {
   "room": "residential1",
-  "datetime": "2015-01-01T00:01:00+00:00",
-  "level": 0.4821
+  "datetime": "2024-01-01T00:01:00+00:00",
+  "value_kwh": 0.9832,
+  "upper_fence": 0.6154
 }
 ```
 
@@ -157,4 +158,7 @@ fence   = Q3 + SIGMA × IQR
 ```
 
 If the current reading exceeds `fence`, a `PeakEvent` is emitted. The current value is evaluated against the existing window before being added to it, preventing an outlier from inflating its own threshold.
+Results in the `household.power.peaks` topic include the detected peak value and the upper fence at the time of detection, allowing for post-analysis of how extreme each peak was relative to recent data.
 
+## Results
+![img.png](img.png)
