@@ -1,0 +1,25 @@
+# Dataset (CC-BY-4.0, download separately)
+data/CNC_Machining/
+data/*.h5
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Environment
+.env
+*.env.local
+
+# IDE
+.idea/
+.vscode/
