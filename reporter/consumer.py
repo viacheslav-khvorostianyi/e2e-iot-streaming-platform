@@ -14,7 +14,13 @@ log = structlog.get_logger()
 def decode(raw: bytes) -> PeakEvent | None:
     try:
         return parse_peak(json.loads(raw.decode("utf-8")))
-    except (json.JSONDecodeError, UnicodeDecodeError, KeyError, ValueError, TypeError) as exc:
+    except (
+        json.JSONDecodeError,
+        UnicodeDecodeError,
+        KeyError,
+        ValueError,
+        TypeError,
+    ) as exc:
         log.warning("bad_message_skipped", error=str(exc))
         return None
 
