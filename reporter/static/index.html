@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>IoT Consumption Anomalies</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0e1117; color: #e6e6e6; }
+    header { display: flex; align-items: center; justify-content: space-between;
+             padding: 16px 24px; border-bottom: 1px solid #222; }
+    header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+    .live { font-size: 13px; color: #6cc070; }
+    .live::before { content: "● "; }
+    .wrap { padding: 24px; display: grid; gap: 16px; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
+    .card { background: #161b22; border: 1px solid #222; border-radius: 10px; padding: 16px 20px; }
+    .card .label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #8b949e; }
+    .card .value { font-size: 30px; font-weight: 700; margin-top: 6px; }
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .panel { background: #161b22; border: 1px solid #222; border-radius: 10px; padding: 16px; }
+    .panel h2 { font-size: 13px; margin: 0 0 12px; color: #8b949e; font-weight: 600;
+                text-transform: uppercase; letter-spacing: .05em; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #21262d; }
+    th { color: #8b949e; font-weight: 600; }
+    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    @media (max-width: 900px) { .cards, .charts { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>IoT Consumption Anomalies</h1>
+    <span class="live">live · refresh 2s</span>
+  </header>
+  <div class="wrap">
+    <div class="cards">
+      <div class="card"><div class="label">Total peaks</div><div class="value" id="c-total">0</div></div>
+      <div class="card"><div class="label">Peaks / min</div><div class="value" id="c-rate">0</div></div>
+      <div class="card"><div class="label">Max level (kWh)</div><div class="value" id="c-max">0</div></div>
+    </div>
+    <div class="charts">
+      <div class="panel"><h2>Peaks over time</h2><canvas id="timeline"></canvas></div>
+      <div class="panel"><h2>Peaks per room</h2><canvas id="perRoom"></canvas></div>
+      <div class="panel"><h2>Peaks by hour of day</h2><canvas id="byHour"></canvas></div>
+      <div class="panel"><h2>Peaks by building type</h2><canvas id="byType"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Recent anomalies</h2>
+      <table>
+        <thead><tr><th>Room</th><th>Datetime</th><th class="num">Value kWh</th>
+        <th class="num">Fence kWh</th><th class="num">Level kWh</th></tr></thead>
+        <tbody id="recent"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const C = "#6cc070", G = "#30363d", T = "#8b949e";
+    Chart.defaults.color = T;
+    Chart.defaults.borderColor = G;
+
+    const timeline = new Chart(document.getElementById("timeline"), {
+      type: "line",
+      data: { datasets: [{ label: "peaks", data: [], borderColor: C,
+              backgroundColor: "rgba(108,192,112,.15)", fill: true, tension: .25, pointRadius: 0 }] },
+      options: { responsive: true, plugins: { legend: { display: false } },
+        scales: { x: { type: "time", time: { unit: "minute" }, grid: { color: G } },
+                  y: { beginAtZero: true, grid: { color: G } } } }
+    });
+
+    const perRoom = new Chart(document.getElementById("perRoom"), {
+      type: "bar",
+      data: { labels: [], datasets: [{ label: "peaks", data: [], backgroundColor: C }] },
+      options: { responsive: true, indexAxis: "y", plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, grid: { color: G } }, y: { grid: { color: G } } } }
+    });
+
+    const byHour = new Chart(document.getElementById("byHour"), {
+      type: "bar",
+      data: { labels: Array.from({length: 24}, (_, h) => h),
+              datasets: [{ label: "peaks", data: [], backgroundColor: C }] },
+      options: { responsive: true, plugins: { legend: { display: false } },
+        scales: { x: { grid: { color: G }, title: { display: true, text: "hour of day" } },
+                  y: { beginAtZero: true, grid: { color: G } } } }
+    });
+
+    const PALETTE = ["#6cc070", "#d29922", "#58a6ff", "#bc8cff", "#f85149"];
+    const byType = new Chart(document.getElementById("byType"), {
+      type: "doughnut",
+      data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE }] },
+      options: { responsive: true, plugins: { legend: { position: "right" } } }
+    });
+
+    function render(d) {
+      document.getElementById("c-total").textContent = d.total.toLocaleString();
+      document.getElementById("c-rate").textContent = d.peaks_per_min;
+      document.getElementById("c-max").textContent = d.max_level;
+
+      timeline.data.datasets[0].data = d.timeline.map(p => ({ x: p.t, y: p.count }));
+      timeline.update("none");
+
+      perRoom.data.labels = Object.keys(d.per_room);
+      perRoom.data.datasets[0].data = Object.values(d.per_room);
+      perRoom.update("none");
+
+      byHour.data.datasets[0].data = d.by_hour;
+      byHour.update("none");
+
+      byType.data.labels = Object.keys(d.by_type);
+      byType.data.datasets[0].data = Object.values(d.by_type);
+      byType.update("none");
+
+      document.getElementById("recent").innerHTML = d.recent.map(r =>
+        `<tr><td>${r.room}</td><td>${r.datetime}</td>` +
+        `<td class="num">${r.value_kwh}</td><td class="num">${r.upper_fence}</td>` +
+        `<td class="num">${r.level_kwh}</td></tr>`).join("");
+    }
+
+    async function tick() {
+      try { render(await (await fetch("/api/peaks")).json()); }
+      catch (e) {}
+    }
+    tick();
+    setInterval(tick, 2000);
+  </script>
+</body>
+</html>

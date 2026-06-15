@@ -99,3 +99,20 @@ services:
       SIGMA: "0.5"
       DETECTION_FEED: grid_import
     restart: on-failure
+
+  reporter:
+    build: ./reporter
+    container_name: reporter
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    ports:
+      - "8050:8050"
+    environment:
+      BOOTSTRAP_SERVERS: broker:9092
+      INPUT_TOPIC: household.power.peaks
+      GROUP_ID: anomaly-reporter
+      FROM_BEGINNING: "true"
+      MAX_EVENTS: "5000"
+      PORT: "8050"
+    restart: on-failure
