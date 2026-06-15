@@ -6,6 +6,7 @@ _TYPE_RE = re.compile(r"^([a-zA-Z]+)")
 
 @dataclass(frozen=True)
 class PeakEvent:
+    household: str
     room: str
     datetime: str
     value_kwh: float
@@ -14,6 +15,7 @@ class PeakEvent:
 
 def parse_peak(payload: dict) -> PeakEvent:
     return PeakEvent(
+        household=payload["household"],
         room=payload["room"],
         datetime=payload["datetime"],
         value_kwh=float(payload["value_kwh"]),
@@ -25,6 +27,6 @@ def level(event: PeakEvent) -> float:
     return event.value_kwh - event.upper_fence
 
 
-def building_type(room: str) -> str:
-    match = _TYPE_RE.match(room)
+def building_type(household: str) -> str:
+    match = _TYPE_RE.match(household)
     return match.group(1) if match else "other"

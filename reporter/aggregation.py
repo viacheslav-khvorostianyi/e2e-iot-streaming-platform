@@ -16,11 +16,14 @@ def _hour_of(iso_ts: str) -> int | None:
         return None
 
 
-def aggregate(snapshot: list[StampedEvent]) -> PeaksResponse:
+def aggregate(snapshot: list[StampedEvent], household_filter: str | None = None) -> PeaksResponse:
+    if household_filter:
+        snapshot = [(ts, e) for ts, e in snapshot if e.household == household_filter]
     events = [event for _, event in snapshot]
     levels = [level(event) for event in events]
-    per_room = Counter(event.room for event in events)
-    by_type = Counter(building_type(event.room) for event in events)
+    per_room = Counter(f"{event.household}/{event.room}" for event in events)
+    per_household = Counter(event.household for event in events)
+    by_type = Counter(building_type(event.household) for event in events)
 
     buckets: dict[int, int] = {}
     for timestamp, _ in snapshot:
@@ -41,6 +44,7 @@ def aggregate(snapshot: list[StampedEvent]) -> PeaksResponse:
         peaks_per_min=peaks_per_min,
         max_level=round(max(levels, default=0.0), 4),
         per_room=dict(sorted(per_room.items())),
+        per_household=dict(sorted(per_household.items())),
         by_type=dict(sorted(by_type.items())),
         by_hour=by_hour,
         timeline=[

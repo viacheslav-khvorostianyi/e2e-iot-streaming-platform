@@ -5,6 +5,7 @@
   "doc": "Energy reading from an OPSD household meter (1-minute resolution)",
   "fields": [
     {"name": "household",     "type": "string", "doc": "Building identifier, e.g. residential1, industrial2"},
+    {"name": "room",          "type": "string", "doc": "Room within the building, e.g. kitchen, livingroom, bedroom"},
     {"name": "feed",          "type": "string", "doc": "Meter type, e.g. grid_import, pv, heat_pump"},
     {"name": "utc_timestamp", "type": "string", "doc": "ISO-8601 UTC timestamp of the 1-minute interval"},
     {"name": "value_kwh",     "type": "double", "doc": "Energy consumed/generated in this interval (kWh)"}

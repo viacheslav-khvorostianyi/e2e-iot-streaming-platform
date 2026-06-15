@@ -4,7 +4,8 @@ from dataclasses import asdict, dataclass
 
 @dataclass
 class PeakEvent:
-    room: str          # household identifier
+    household: str     # building identifier
+    room: str          # room within the building
     datetime: str      # ISO-8601 UTC timestamp of the reading
     value_kwh: float   # reading that exceeded the upper Tukey fence
     upper_fence: float # Q3 + sigma * IQR at detection time
