@@ -5,6 +5,7 @@ from dataclasses import asdict, dataclass
 @dataclass
 class HouseholdReading:
     household: str
+    room: str
     feed: str
     utc_timestamp: str  # ISO-8601 UTC
     value_kwh: float

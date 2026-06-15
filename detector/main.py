@@ -94,19 +94,22 @@ def run():
 
             total_consumed += 1
             household = payload["household"]
+            room = payload["room"]
             value_kwh = payload["value_kwh"]
+            detection_key = f"{household}:{room}"
 
-            upper_fence = detector.detect(household, value_kwh)
+            upper_fence = detector.detect(detection_key, value_kwh)
             if upper_fence is not None:
                 event = PeakEvent(
-                    room=household,
+                    household=household,
+                    room=room,
                     datetime=payload["utc_timestamp"],
                     value_kwh=value_kwh,
                     upper_fence=upper_fence,
                 )
                 producer.produce(
                     settings.output_topic,
-                    key=household.encode("utf-8"),
+                    key=detection_key.encode("utf-8"),
                     value=to_json_bytes(event),
                     on_delivery=_delivery_cb,
                 )
