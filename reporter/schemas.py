@@ -1,14 +1,12 @@
 from pydantic import BaseModel
 
-from domain import PeakEvent, level
+from domain import PeakEvent
 
 
 class RecentPeak(BaseModel):
     household: str
     room: str
     datetime: str
-    value_kwh: float
-    upper_fence: float
     level_kwh: float
 
 
@@ -34,7 +32,5 @@ def to_recent(event: PeakEvent) -> RecentPeak:
         household=event.household,
         room=event.room,
         datetime=event.datetime,
-        value_kwh=round(event.value_kwh, 4),
-        upper_fence=round(event.upper_fence, 4),
-        level_kwh=round(level(event), 4),
+        level_kwh=round(event.level, 4),
     )

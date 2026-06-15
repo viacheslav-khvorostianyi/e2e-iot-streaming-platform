@@ -68,9 +68,9 @@ services:
     volumes:
       - ./data:/data:ro
 
-  detector:
-    build: ./detector
-    container_name: detector
+  detector-streams:
+    build: ./detector-streams
+    container_name: detector-streams
     depends_on:
       init:
         condition: service_completed_successfully
@@ -78,11 +78,13 @@ services:
       BOOTSTRAP_SERVERS: broker:9092
       INPUT_TOPIC: household.power.readings
       OUTPUT_TOPIC: household.power.peaks
-      GROUP_ID: peak-detector
+      APPLICATION_ID: peak-detector-streams
       WINDOW_SIZE: "200"
       MIN_WINDOW: "30"
       SIGMA: "1.5"
       DETECTION_FEED: grid_import
+    volumes:
+      - detector-streams-state:/var/lib/kafka-streams
     restart: on-failure
 
   reporter:
@@ -101,3 +103,6 @@ services:
       MAX_EVENTS: "5000"
       PORT: "8050"
     restart: on-failure
+
+volumes:
+  detector-streams-state:

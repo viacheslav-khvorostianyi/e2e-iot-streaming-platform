@@ -1,0 +1,81 @@
+package com.opsd.streaming.processor;
+
+import com.opsd.streaming.config.DetectorConfig;
+import com.opsd.streaming.model.HouseholdReading;
+import com.opsd.streaming.model.PeakEvent;
+import org.apache.commons.math3.stat.descriptive.rank.Percentile;
+import org.apache.kafka.streams.processor.api.Processor;
+import org.apache.kafka.streams.processor.api.ProcessorContext;
+import org.apache.kafka.streams.processor.api.Record;
+import org.apache.kafka.streams.state.KeyValueStore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class IqrDetectorProcessor implements Processor<String, HouseholdReading, String, PeakEvent> {
+
+    private static final Logger log = LoggerFactory.getLogger(IqrDetectorProcessor.class);
+    public static final String STORE_NAME = "iqr-window-store";
+
+    private final int windowSize;
+    private final int minWindow;
+    private final double sigma;
+    private final String detectionFeed;
+
+    private KeyValueStore<String, List<Double>> store;
+    private ProcessorContext<String, PeakEvent> context;
+
+    public IqrDetectorProcessor(DetectorConfig config) {
+        this.windowSize    = config.windowSize();
+        this.minWindow     = config.minWindow();
+        this.sigma         = config.sigma();
+        this.detectionFeed = config.detectionFeed();
+    }
+
+    @Override
+    public void init(ProcessorContext<String, PeakEvent> context) {
+        this.context = context;
+        this.store   = context.getStateStore(STORE_NAME);
+    }
+
+    @Override
+    public void process(Record<String, HouseholdReading> record) {
+        HouseholdReading reading = record.value();
+        if (reading == null || !detectionFeed.equals(reading.getFeed())) return;
+
+        String key      = record.key();
+        double valueKwh = reading.getValueKwh();
+
+        List<Double> window = store.get(key);
+        if (window == null) window = new ArrayList<>();
+
+        // evaluate-before-append: outlier cannot inflate its own threshold
+        if (window.size() >= minWindow) {
+            double[] arr = window.stream().mapToDouble(Double::doubleValue).toArray();
+            Percentile calc = new Percentile();
+            calc.setData(arr);
+            double q3         = calc.evaluate(75.0);
+            double iqr        = q3 - calc.evaluate(25.0);
+            double upperFence = q3 + sigma * iqr;
+
+            if (valueKwh > upperFence) {
+                double level = valueKwh - upperFence;
+                context.forward(new Record<>(
+                    key,
+                    new PeakEvent(reading.getHousehold(), reading.getRoom(), reading.getUtcTimestamp(), level),
+                    record.timestamp()
+                ));
+                log.debug("peak_detected key={} level={} fence={}", key, level, upperFence);
+            }
+        }
+
+        window.add(valueKwh);
+        if (window.size() > windowSize) window.remove(0);
+        store.put(key, window);
+    }
+
+    @Override
+    public void close() {}
+}

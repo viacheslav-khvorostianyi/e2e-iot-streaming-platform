@@ -1,4 +1,0 @@
-confluent-kafka==2.4.0
-numpy==1.26.4
-structlog==24.1.0
-pydantic-settings==2.2.1

@@ -1,7 +1,7 @@
 from collections import Counter
 from datetime import datetime
 
-from domain import building_type, level
+from domain import building_type
 from schemas import PeaksResponse, to_recent
 from store import StampedEvent
 
@@ -20,7 +20,7 @@ def aggregate(snapshot: list[StampedEvent], household_filter: str | None = None)
     if household_filter:
         snapshot = [(ts, e) for ts, e in snapshot if e.household == household_filter]
     events = [event for _, event in snapshot]
-    levels = [level(event) for event in events]
+    levels = [event.level for event in events]
     per_room = Counter(f"{event.household}/{event.room}" for event in events)
     per_household = Counter(event.household for event in events)
     by_type = Counter(building_type(event.household) for event in events)
