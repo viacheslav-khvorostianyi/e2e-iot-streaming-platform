@@ -6,7 +6,10 @@ from typing import Iterator
 
 from models import HouseholdReading
 
-COLUMN_RE = re.compile(r'^DE_KN_((?:residential|industrial|public)\d+)_(.+)$')
+_ROOM_NAMES = "kitchen|livingroom|bedroom|warehouse|office|production|lobby|cafeteria|hall"
+COLUMN_RE = re.compile(
+    rf'^DE_KN_((?:residential|industrial|public)\d+)_({_ROOM_NAMES})_(grid_import)$'
+)
 TIMESTAMP_FMT = "%Y-%m-%dT%H:%M:%SZ"
 
 
@@ -42,9 +45,13 @@ def iter_readings(data_source: str) -> Iterator[tuple[HouseholdReading, str]]:
                     value = float(val)
                 except ValueError:
                     continue
+                household = m.group(1)
+                room = m.group(2)
+                feed = m.group(3)
                 yield HouseholdReading(
-                    household=m.group(1),
-                    feed=m.group(2),
+                    household=household,
+                    room=room,
+                    feed=feed,
                     utc_timestamp=iso_ts,
                     value_kwh=value,
-                ), m.group(1)
+                ), f"{household}:{room}"

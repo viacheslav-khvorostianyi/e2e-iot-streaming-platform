@@ -96,7 +96,7 @@ services:
       GROUP_ID: peak-detector
       WINDOW_SIZE: "200"
       MIN_WINDOW: "30"
-      SIGMA: "0.5"
+      SIGMA: "1.5"
       DETECTION_FEED: grid_import
     restart: on-failure
 
