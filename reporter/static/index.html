@@ -33,7 +33,7 @@
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #21262d; }
     th { color: #8b949e; font-weight: 600; }
-    td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.num { font-variant-numeric: tabular-nums; }
     @media (max-width: 900px) { .cards, .charts { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -69,7 +69,7 @@
       <h2>Recent anomalies</h2>
       <table>
         <thead><tr><th>Household</th><th>Room</th><th>Datetime</th>
-        <th class="num">Value kWh</th><th class="num">Fence kWh</th><th class="num">Level kWh</th></tr></thead>
+        <th class="num">Level kWh</th></tr></thead>
         <tbody id="recent"></tbody>
       </table>
     </div>
@@ -186,7 +186,6 @@
       const maxLv = Math.max(...d.recent.map(r => r.level_kwh), 0);
       document.getElementById("recent").innerHTML = d.recent.map(r =>
         `<tr><td>${r.household}</td><td>${r.room}</td><td>${fmtTs(r.datetime)}</td>` +
-        `<td class="num">${r.value_kwh}</td><td class="num">${r.upper_fence}</td>` +
         `<td class="num" style="${levelColor(r.level_kwh, maxLv)}">${r.level_kwh}</td></tr>`).join("");
     }
 
@@ -196,6 +195,13 @@
       try { render(await (await fetch(url)).json()); }
       catch (e) {}
     }
+
+    document.addEventListener("keydown", e => {
+      if (e.altKey && e.key === "Enter") {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+      }
+    });
 
     hhFilter.addEventListener("change", tick);
     tick();

@@ -9,8 +9,7 @@ class PeakEvent:
     household: str
     room: str
     datetime: str
-    value_kwh: float
-    upper_fence: float
+    level: float
 
 
 def parse_peak(payload: dict) -> PeakEvent:
@@ -18,13 +17,8 @@ def parse_peak(payload: dict) -> PeakEvent:
         household=payload["household"],
         room=payload["room"],
         datetime=payload["datetime"],
-        value_kwh=float(payload["value_kwh"]),
-        upper_fence=float(payload["upper_fence"]),
+        level=float(payload["level"]),
     )
-
-
-def level(event: PeakEvent) -> float:
-    return event.value_kwh - event.upper_fence
 
 
 def building_type(household: str) -> str:

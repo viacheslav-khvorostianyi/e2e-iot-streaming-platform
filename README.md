@@ -15,7 +15,7 @@ CSV file (data/household/)
   [generator] ──────────────────────────────► topic: household.power.readings (11 partitions)
                                                               │
                                                               ▼
-                                                       [detector]  ← IQR peak detection per household:room
+                                                  [detector-streams]  ← IQR peak detection per household:room
                                                               │
                                                               ▼
                                               topic: household.power.peaks (3 partitions)
@@ -30,7 +30,7 @@ Messages are serialized as plain JSON — no Schema Registry is used.
 
 The **generator** reads the CSV and emits one Kafka message per meter reading (all feed types: `grid_import`, `pv`, appliances, etc.).
 
-The **detector** consumes readings, maintains a rolling IQR window **per `household:room` pair**, and publishes a peak event whenever `grid_import` exceeds the upper Tukey fence (`Q3 + sigma × IQR`).
+The **detector-streams** is a Java Kafka Streams application. It consumes readings, maintains a rolling IQR window **per `household:room` pair** in a persistent RocksDB-backed state store, and publishes a peak event whenever `grid_import` exceeds the upper Tukey fence (`Q3 + sigma × IQR`).
 
 The **reporter** consumes peak events and serves a live dashboard with charts and an anomaly table, refreshed every 2 seconds.
 
@@ -101,10 +101,11 @@ docker compose exec broker kafka-console-consumer \
   "household": "residential1",
   "room": "kitchen",
   "datetime": "2026-01-01T00:01:00+00:00",
-  "value_kwh": 0.9832,
-  "upper_fence": 0.6154
+  "level": 0.3678
 }
 ```
+
+`level` is `value_kwh − upper_fence` at the moment of detection — how far above the threshold the reading was.
 
 ---
 
@@ -120,20 +121,18 @@ docker compose exec broker kafka-console-consumer \
 | `EVENTS_PER_SECOND` | `100` | Playback rate (messages/sec) |
 | `LOOP` | `true` | Replay the CSV continuously |
 
-### Detector
+### Detector-Streams
 
 | Variable | Default | Description |
 |---|---|---|
 | `BOOTSTRAP_SERVERS` | `broker:9092` | Kafka broker address |
 | `INPUT_TOPIC` | `household.power.readings` | Topic to consume |
-| `OUTPUT_TOPIC` | `household.power.peaks` | Topic to produce peaks to |
-| `GROUP_ID` | `peak-detector` | Kafka consumer group |
-| `DETECTION_FEED` | `grid_import` | Feed type to run detection on |
+| `OUTPUT_TOPIC` | `household.power.peaks` | Topic to publish peaks to |
+| `APPLICATION_ID` | `peak-detector-streams` | Kafka Streams application ID |
 | `WINDOW_SIZE` | `200` | Rolling window size per household:room (samples) |
 | `MIN_WINDOW` | `30` | Minimum samples before detection activates |
 | `SIGMA` | `1.5` | IQR multiplier for the upper Tukey fence |
-
-**Tuning `SIGMA`:** lower values (e.g. `0.5`) flag more peaks; higher values (e.g. `2.0`) flag only extreme spikes. The classic Tukey value is `1.5`.
+| `DETECTION_FEED` | `grid_import` | Feed type to run detection on |
 
 ### Reporter
 
@@ -154,18 +153,12 @@ docker compose exec broker kafka-console-consumer \
 
 **One-off run with a different sigma:**
 ```bash
-docker compose run -e SIGMA=0.5 detector
+docker compose run -e SIGMA=0.5 detector-streams
 ```
 
-**Persistent change via `.env` file:**
+**Persistent change via `docker-compose.yml`:** edit the `SIGMA` value under the `detector-streams` service and restart:
 ```bash
-echo "SIGMA=0.5" > detector/.env
-docker compose up -d --no-deps detector
-```
-
-**Persistent change via `docker-compose.yml`:** edit the `SIGMA` value under the `detector` service and restart:
-```bash
-docker compose up -d --no-deps detector
+docker compose up -d --no-deps detector-streams
 ```
 
 ---
@@ -182,7 +175,7 @@ fence   = Q3 + SIGMA × IQR
 
 If the current reading exceeds `fence`, a `PeakEvent` is emitted. The current value is evaluated against the existing window before being added to it, preventing an outlier from inflating its own threshold.
 
-Results in the `household.power.peaks` topic include the detected peak value and the upper fence at the time of detection, allowing for post-analysis of how extreme each peak was relative to recent data.
+The `level` field in the peak event records how far above the fence the reading was (`value_kwh − fence`), allowing post-analysis of peak severity.
 
 ---
 
@@ -197,8 +190,7 @@ The reporter serves a live dashboard at **http://localhost:8050**, auto-refreshe
 - Peaks by hour of day (distribution bar)
 - Peaks per household (color-coded by building type)
 - Peaks by building type (doughnut: residential / industrial / public)
-- Recent anomalies table — household, room, timestamp, value, fence, level (color-coded by severity)
+- Recent anomalies table — household, room, timestamp, level (color-coded by severity)
 ![Screenshot of the dashboard with charts and anomaly table](img/img.png)
 ![Dashboard screenshot showing summary cards, charts, and anomaly table](img/img_1.png)
 ![Dashboard screenshot showing peaks over time, peaks per room, and peaks by hour of day](img/img_2.png)
-
