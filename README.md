@@ -24,7 +24,7 @@ CSV file (data/household/)
                                                         [reporter] ──► http://localhost:8050
 ```
 
-Supporting services: **broker** (Confluent Kafka 7.6, KRaft mode — no ZooKeeper), **kafka-ui** (`http://localhost:8080`).
+Supporting services running alongside: **broker** (Confluent Kafka 7.6, KRaft mode — no ZooKeeper), **kafka-ui** (`http://localhost:8080`).
 
 Messages are serialized as plain JSON — no Schema Registry is used.
 
@@ -59,7 +59,7 @@ This writes `data/household/synthetic_data.csv`, which is mounted into the gener
 docker compose up --build -d
 ```
 
-This starts the broker, Kafka UI, creates both topics, then launches the generator, detector-streams, and reporter. Wait ~30 s for the broker healthcheck to pass before services begin producing/consuming.
+This starts the broker, Kafka UI, creates both topics, then launches the generator, detector, and reporter. Wait ~30 s for the broker healthcheck to pass before services begin producing/consuming.
 
 - Kafka UI: **http://localhost:8080**
 - Dashboard: **http://localhost:8050**
