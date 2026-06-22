@@ -8,21 +8,9 @@ End-to-end data processing pipeline for household energy consumption streams usi
 
 ## Architecture
 
-```
-CSV file (data/household/)
-        │
-        ▼
-  [generator] ──────────────────────────────► topic: household.power.readings (11 partitions)
-                                                              │
-                                                              ▼
-                                                  [detector-streams]  ← IQR peak detection per household:room
-                                                              │
-                                                              ▼
-                                              topic: household.power.peaks (3 partitions)
-                                                              │
-                                                              ▼
-                                                        [reporter] ──► http://localhost:8050
-```
+<img src="img/streaming_topology.png" width="400">
+
+---
 
 Supporting services running alongside: **broker** (Confluent Kafka 7.6, KRaft mode — no ZooKeeper), **kafka-ui** (`http://localhost:8080`).
 
