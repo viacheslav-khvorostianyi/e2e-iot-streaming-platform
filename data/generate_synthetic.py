@@ -96,8 +96,9 @@ def _normal(col_key: str, rng: random.Random) -> float:
 
 def _anomaly(col_key: str, rng: random.Random) -> float:
     mean, std = PROFILES[col_key]
-    # Anomalies placed well above the IQR fence (sigma=0.5 ≈ mean + 1.35·std)
-    return mean + rng.uniform(2.5, 4.0) * std
+    # Detector default SIGMA=1.5 → upper Tukey fence ≈ mean + 2.70·std.
+    # Floor of 2.8 keeps injected anomalies clear of that fence.
+    return mean + rng.uniform(2.8, 4.0) * std
 
 
 def main() -> None:
