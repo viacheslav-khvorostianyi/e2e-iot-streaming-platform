@@ -26,6 +26,8 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
 
     private KeyValueStore<String, List<Double>> store;
     private ProcessorContext<String, PeakEvent> context;
+    private long processedCount;
+    private long peaksCount;
 
     public IqrDetectorProcessor(DetectorConfig config) {
         this.windowSize    = config.windowSize();
@@ -68,14 +70,18 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
                     record.timestamp()
                 ));
                 log.debug("peak_detected key={} level={} fence={}", key, level, upperFence);
+                peaksCount++;
             }
         }
 
         window.add(valueKwh);
         if (window.size() > windowSize) window.remove(0);
         store.put(key, window);
+        processedCount++;
     }
 
     @Override
-    public void close() {}
+    public void close() {
+        log.info("detector_closing processed={} peaks_emitted={}", processedCount, peaksCount);
+    }
 }

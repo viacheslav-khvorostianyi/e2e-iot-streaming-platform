@@ -32,6 +32,9 @@ public class DetectorApp {
         Properties props  = buildProperties(config);
 
         KafkaStreams streams = new KafkaStreams(topology, props);
+        log.info("detector_starting input={} output={} sigma={} window={}/{}",
+                config.inputTopic(), config.outputTopic(), config.sigma(),
+                config.minWindow(), config.windowSize());
         streams.setStateListener((newState, oldState) ->
             log.info("state_transition old={} new={}", oldState, newState)
         );
