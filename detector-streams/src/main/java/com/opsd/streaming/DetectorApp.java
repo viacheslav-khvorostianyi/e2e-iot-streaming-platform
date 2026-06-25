@@ -12,6 +12,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.StreamsConfig;
+import org.apache.kafka.streams.errors.LogAndContinueExceptionHandler;
 import org.apache.kafka.streams.Topology;
 import org.apache.kafka.streams.state.KeyValueStore;
 import org.apache.kafka.streams.state.StoreBuilder;
@@ -92,6 +93,8 @@ public class DetectorApp {
         props.put(StreamsConfig.NUM_STREAM_THREADS_CONFIG,       2);
         props.put(StreamsConfig.STATE_DIR_CONFIG,                "/var/lib/kafka-streams");
         props.put("auto.offset.reset",                           "earliest");
+        props.put(StreamsConfig.DEFAULT_DESERIALIZATION_EXCEPTION_HANDLER_CLASS_CONFIG,
+                  LogAndContinueExceptionHandler.class);
         return props;
     }
 }

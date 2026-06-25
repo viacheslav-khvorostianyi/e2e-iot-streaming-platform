@@ -83,6 +83,7 @@ services:
       MIN_WINDOW: "30"
       SIGMA: "1.5"
       DETECTION_FEED: grid_import
+      COOLDOWN_MS: "60000"
     volumes:
       - detector-streams-state:/var/lib/kafka-streams
     restart: on-failure

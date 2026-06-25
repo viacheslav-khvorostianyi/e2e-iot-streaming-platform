@@ -12,7 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class IqrDetectorProcessor implements Processor<String, HouseholdReading, String, PeakEvent> {
 
@@ -23,9 +25,11 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
     private final int minWindow;
     private final double sigma;
     private final String detectionFeed;
+    private final long cooldownMs;
 
     private KeyValueStore<String, List<Double>> store;
     private ProcessorContext<String, PeakEvent> context;
+    private final Map<String, Long> lastPeakTs = new HashMap<>();
     private long processedCount;
     private long peaksCount;
 
@@ -34,6 +38,7 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
         this.minWindow     = config.minWindow();
         this.sigma         = config.sigma();
         this.detectionFeed = config.detectionFeed();
+        this.cooldownMs    = config.cooldownMs();
     }
 
     @Override
@@ -63,14 +68,19 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
             double upperFence = q3 + sigma * iqr;
 
             if (valueKwh > upperFence) {
-                double level = valueKwh - upperFence;
-                context.forward(new Record<>(
-                    key,
-                    new PeakEvent(reading.getHousehold(), reading.getRoom(), reading.getUtcTimestamp(), level),
-                    record.timestamp()
-                ));
-                log.debug("peak_detected key={} level={} fence={}", key, level, upperFence);
-                peaksCount++;
+                long now = record.timestamp();
+                Long last = lastPeakTs.get(key);
+                if (last == null || now - last >= cooldownMs) {
+                    double level = valueKwh - upperFence;
+                    context.forward(new Record<>(
+                        key,
+                        new PeakEvent(reading.getHousehold(), reading.getRoom(), reading.getUtcTimestamp(), level),
+                        now
+                    ));
+                    lastPeakTs.put(key, now);
+                    log.debug("peak_detected key={} level={} fence={}", key, level, upperFence);
+                    peaksCount++;
+                }
             }
         }
 

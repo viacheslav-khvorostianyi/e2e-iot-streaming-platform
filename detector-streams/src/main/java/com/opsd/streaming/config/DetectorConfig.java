@@ -9,6 +9,7 @@ public class DetectorConfig {
     private final int minWindow;
     private final double sigma;
     private final String detectionFeed;
+    private final long cooldownMs;
 
     public DetectorConfig() {
         bootstrapServers = env("BOOTSTRAP_SERVERS", "broker:9092");
@@ -19,6 +20,7 @@ public class DetectorConfig {
         minWindow        = Integer.parseInt(env("MIN_WINDOW",  "30"));
         sigma            = Double.parseDouble(env("SIGMA",     "1.5"));
         detectionFeed    = env("DETECTION_FEED",    "grid_import");
+        cooldownMs       = Long.parseLong(env("COOLDOWN_MS", "60000"));
     }
 
     private static String env(String name, String fallback) {
@@ -34,4 +36,5 @@ public class DetectorConfig {
     public int    minWindow()        { return minWindow; }
     public double sigma()            { return sigma; }
     public String detectionFeed()    { return detectionFeed; }
+    public long   cooldownMs()       { return cooldownMs; }
 }

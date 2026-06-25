@@ -121,6 +121,7 @@ docker compose exec broker kafka-console-consumer \
 | `MIN_WINDOW` | `30` | Minimum samples before detection activates |
 | `SIGMA` | `1.5` | IQR multiplier for the upper Tukey fence |
 | `DETECTION_FEED` | `grid_import` | Feed type to run detection on |
+| `COOLDOWN_MS` | `60000` | Min ms between peaks emitted for the same household:room key |
 
 ### Reporter
 
