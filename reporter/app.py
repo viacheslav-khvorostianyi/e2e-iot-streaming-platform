@@ -48,7 +48,8 @@ def create_app() -> FastAPI:
 
     @app.get("/api/peaks", response_model=PeaksResponse)
     def api_peaks(store: PeakStore = Depends(get_store)) -> PeaksResponse:
-        return aggregate(store.snapshot())
+        snapshot, total_seen = store.snapshot()
+        return aggregate(snapshot, total_seen)
 
     @app.get("/")
     def index() -> FileResponse:
