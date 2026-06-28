@@ -19,10 +19,5 @@ class PeakStore:
             self._total_seen += 1
 
     def snapshot(self) -> tuple[list[StampedEvent], int]:
-        """Return the retained window and the lifetime count seen so far.
-
-        The deque is bounded, so ``len(window)`` caps at ``maxlen``; the
-        monotonic counter keeps the true lifetime total regardless of eviction.
-        """
         with self._lock:
             return list(self._events), self._total_seen
