@@ -11,10 +11,16 @@
     * { box-sizing: border-box; }
     body { margin: 0; font-family: system-ui, sans-serif; background: #0e1117; color: #e6e6e6; }
     header { display: flex; align-items: center; justify-content: space-between;
-             padding: 16px 24px; border-bottom: 1px solid #222; }
+             padding: 16px 24px; border-bottom: 1px solid #222; gap: 16px; flex-wrap: wrap; }
     header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
     .live { font-size: 13px; color: #6cc070; }
     .live::before { content: "● "; }
+    .filter-wrap { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #8b949e; }
+    .filter-wrap select {
+      background: #161b22; color: #e6e6e6; border: 1px solid #30363d;
+      border-radius: 6px; padding: 4px 8px; font-size: 13px; cursor: pointer;
+    }
     .wrap { padding: 24px; display: grid; gap: 16px; }
     .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; }
     .card { background: #161b22; border: 1px solid #222; border-radius: 10px; padding: 16px 20px; }
@@ -40,7 +46,15 @@
 <body>
   <header>
     <h1>IoT Consumption Anomalies</h1>
-    <span class="live">live · refresh 2s</span>
+    <div class="header-right">
+      <div class="filter-wrap">
+        <label for="hh-filter">Household</label>
+        <select id="hh-filter">
+          <option value="">All</option>
+        </select>
+      </div>
+      <span class="live">live · refresh 2s</span>
+    </div>
   </header>
   <div class="wrap">
     <div class="cards">
@@ -67,8 +81,8 @@
     <div class="panel">
       <h2>Recent anomalies</h2>
       <table>
-        <thead><tr><th>Room</th><th>Datetime</th><th class="num">Value kWh</th>
-        <th class="num">Fence kWh</th><th class="num">Level kWh</th></tr></thead>
+        <thead><tr><th>Household</th><th>Room</th><th>Datetime</th>
+        <th class="num">Level kWh</th></tr></thead>
         <tbody id="recent"></tbody>
       </table>
     </div>
@@ -136,11 +150,55 @@
     });
 
     const PALETTE = ["#6cc070", "#d29922", "#58a6ff", "#bc8cff", "#f85149"];
+    const TYPE_COLOR = { industrial: "#d29922", public: "#58a6ff", residential: "#6cc070" };
+    function hhColor(name) {
+      for (const [t, c] of Object.entries(TYPE_COLOR)) { if (name.startsWith(t)) return c; }
+      return C;
+    }
     const byType = new Chart(document.getElementById("byType"), {
       type: "doughnut",
       data: { labels: [], datasets: [{ data: [], backgroundColor: PALETTE }] },
       options: { responsive: true, plugins: { legend: { position: "right" } } }
     });
+
+    const perHousehold = new Chart(document.getElementById("perHousehold"), {
+      type: "bar",
+      data: { labels: [], datasets: [{ label: "peaks", data: [], backgroundColor: C }] },
+      options: { responsive: true, plugins: { legend: { display: false } },
+        scales: { x: { grid: { color: G } }, y: { beginAtZero: true, grid: { color: G } } } }
+    });
+
+    const hhFilter = document.getElementById("hh-filter");
+    let knownHouseholds = [];
+
+    function updateHouseholdDropdown(householdKeys) {
+      const current = hhFilter.value;
+      const next = new Set(householdKeys);
+      if (JSON.stringify([...next].sort()) === JSON.stringify(knownHouseholds.slice().sort())) return;
+      knownHouseholds = [...next].sort();
+      while (hhFilter.options.length > 1) hhFilter.remove(1);
+      for (const hh of knownHouseholds) {
+        const opt = document.createElement("option");
+        opt.value = hh;
+        opt.textContent = hh;
+        hhFilter.appendChild(opt);
+      }
+      if (knownHouseholds.includes(current)) hhFilter.value = current;
+    }
+
+    function fmtTs(iso) {
+      const dt = new Date(iso);
+      return dt.toLocaleDateString("en", { month: "short", day: "numeric" })
+        + " " + iso.slice(11, 16) + " UTC";
+    }
+
+    function levelColor(lv, maxLv) {
+      if (maxLv === 0) return "";
+      const pct = lv / maxLv;
+      if (pct > 0.6) return "color:#f85149";
+      if (pct > 0.25) return "color:#d29922";
+      return "color:#6cc070";
+    }
 
     function render(d) {
       lastData = d;
@@ -150,8 +208,9 @@
 
       renderTimeline(d);
 
-      perRoom.data.labels = Object.keys(d.per_room);
-      perRoom.data.datasets[0].data = Object.values(d.per_room);
+      const topRooms = Object.entries(d.per_room).sort((a, b) => b[1] - a[1]).slice(0, 15);
+      perRoom.data.labels = topRooms.map(([k]) => k);
+      perRoom.data.datasets[0].data = topRooms.map(([, v]) => v);
       perRoom.update("none");
 
       byHour.data.datasets[0].data = d.by_hour;
@@ -161,16 +220,34 @@
       byType.data.datasets[0].data = Object.values(d.by_type);
       byType.update("none");
 
+      updateHouseholdDropdown(Object.keys(d.per_household));
+      const hhKeys = Object.keys(d.per_household);
+      perHousehold.data.labels = hhKeys;
+      perHousehold.data.datasets[0].data = Object.values(d.per_household);
+      perHousehold.data.datasets[0].backgroundColor = hhKeys.map(hhColor);
+      perHousehold.update("none");
+
+      const maxLv = Math.max(...d.recent.map(r => r.level_kwh), 0);
       document.getElementById("recent").innerHTML = d.recent.map(r =>
-        `<tr><td>${r.room}</td><td>${r.datetime}</td>` +
-        `<td class="num">${r.value_kwh}</td><td class="num">${r.upper_fence}</td>` +
-        `<td class="num">${r.level_kwh}</td></tr>`).join("");
+        `<tr><td>${r.household}</td><td>${r.room}</td><td>${fmtTs(r.datetime)}</td>` +
+        `<td class="num" style="${levelColor(r.level_kwh, maxLv)}">${r.level_kwh}</td></tr>`).join("");
     }
 
     async function tick() {
-      try { render(await (await fetch("/api/peaks")).json()); }
+      const hh = hhFilter.value;
+      const url = hh ? `/api/peaks?household=${encodeURIComponent(hh)}` : "/api/peaks";
+      try { render(await (await fetch(url)).json()); }
       catch (e) {}
     }
+
+    document.addEventListener("keydown", e => {
+      if (e.altKey && e.key === "Enter") {
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+      }
+    });
+
+    hhFilter.addEventListener("change", tick);
     tick();
     setInterval(tick, 2000);
   </script>

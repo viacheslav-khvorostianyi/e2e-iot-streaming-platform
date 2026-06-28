@@ -1,13 +1,12 @@
 from pydantic import BaseModel
 
-from domain import PeakEvent, level
+from domain import PeakEvent
 
 
 class RecentPeak(BaseModel):
+    household: str
     room: str
     datetime: str
-    value_kwh: float
-    upper_fence: float
     level_kwh: float
 
 
@@ -21,6 +20,7 @@ class PeaksResponse(BaseModel):
     peaks_per_min: int
     max_level: float
     per_room: dict[str, int]
+    per_household: dict[str, int]
     by_type: dict[str, int]
     by_hour: list[int]
     timeline: list[TimelinePoint]
@@ -29,9 +29,8 @@ class PeaksResponse(BaseModel):
 
 def to_recent(event: PeakEvent) -> RecentPeak:
     return RecentPeak(
+        household=event.household,
         room=event.room,
         datetime=event.datetime,
-        value_kwh=round(event.value_kwh, 4),
-        upper_fence=round(event.upper_fence, 4),
-        level_kwh=round(level(event), 4),
+        level_kwh=round(event.level, 4),
     )

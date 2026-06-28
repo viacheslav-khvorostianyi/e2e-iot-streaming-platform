@@ -26,20 +26,6 @@ services:
       retries: 10
       start_period: 30s
 
-  schema-registry:
-    image: confluentinc/cp-schema-registry:7.6.0
-    hostname: schema-registry
-    container_name: schema-registry
-    depends_on:
-      broker:
-        condition: service_healthy
-    ports:
-      - "8081:8081"
-    environment:
-      SCHEMA_REGISTRY_HOST_NAME: schema-registry
-      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: broker:9092
-      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
-
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: kafka-ui
@@ -51,7 +37,6 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:9092
-      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
 
   init:
     image: confluentinc/cp-kafka:7.6.0
@@ -83,9 +68,9 @@ services:
     volumes:
       - ./data:/data:ro
 
-  detector:
-    build: ./detector
-    container_name: detector
+  detector-streams:
+    build: ./detector-streams
+    container_name: detector-streams
     depends_on:
       init:
         condition: service_completed_successfully
@@ -93,11 +78,14 @@ services:
       BOOTSTRAP_SERVERS: broker:9092
       INPUT_TOPIC: household.power.readings
       OUTPUT_TOPIC: household.power.peaks
-      GROUP_ID: peak-detector
+      APPLICATION_ID: peak-detector-streams
       WINDOW_SIZE: "200"
       MIN_WINDOW: "30"
-      SIGMA: "0.5"
+      SIGMA: "1.5"
       DETECTION_FEED: grid_import
+      COOLDOWN_MS: "60000"
+    volumes:
+      - detector-streams-state:/var/lib/kafka-streams
     restart: on-failure
 
   reporter:
@@ -116,3 +104,6 @@ services:
       MAX_EVENTS: "5000"
       PORT: "8050"
     restart: on-failure
+
+volumes:
+  detector-streams-state:

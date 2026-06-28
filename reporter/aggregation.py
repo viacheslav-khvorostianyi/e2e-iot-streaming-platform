@@ -33,6 +33,7 @@ def aggregate(snapshot: list[StampedEvent], total_seen: int) -> PeaksResponse:
         peaks_per_min=peaks_per_min,
         max_level=round(max((level(e) for e in events), default=0.0), LEVEL_ROUND_DIGITS),
         per_room=dict(sorted(per_room.items())),
+        per_household=dict(sorted(per_household.items())),
         by_type=dict(sorted(by_type.items())),
         by_hour=by_hour,
         timeline=[

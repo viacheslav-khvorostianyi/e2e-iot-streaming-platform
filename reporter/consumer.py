@@ -2,7 +2,7 @@ import json
 import threading
 
 import structlog
-from confluent_kafka import Consumer, KafkaError, KafkaException
+from confluent_kafka import OFFSET_BEGINNING, Consumer, KafkaError, KafkaException
 
 from config import settings
 from domain import PeakEvent, parse_peak
@@ -31,14 +31,25 @@ def build_consumer() -> Consumer:
             "bootstrap.servers": settings.bootstrap_servers,
             "group.id": settings.group_id,
             "auto.offset.reset": "earliest" if settings.from_beginning else "latest",
-            "enable.auto.commit": True,
+            # display-only consumer: never commit, so the view rebuilds from
+            # scratch on every restart instead of resuming a stale offset
+            "enable.auto.commit": False,
         }
     )
 
 
+def _on_assign(consumer: Consumer, partitions) -> None:
+    # seek to the start of each assigned partition so from_beginning is
+    # honored on every restart, not just the first run
+    if settings.from_beginning:
+        for tp in partitions:
+            tp.offset = OFFSET_BEGINNING
+    consumer.assign(partitions)
+
+
 def consume_loop(store: PeakStore, stop: threading.Event) -> None:
     consumer = build_consumer()
-    consumer.subscribe([settings.input_topic])
+    consumer.subscribe([settings.input_topic], on_assign=_on_assign)
     log.info(
         "reporter_consumer_starting",
         input_topic=settings.input_topic,
