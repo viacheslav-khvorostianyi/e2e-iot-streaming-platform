@@ -12,14 +12,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class IqrDetectorProcessor implements Processor<String, HouseholdReading, String, PeakEvent> {
 
     private static final Logger log = LoggerFactory.getLogger(IqrDetectorProcessor.class);
     public static final String STORE_NAME = "iqr-window-store";
+    public static final String COOLDOWN_STORE_NAME = "cooldown-store";
 
     private final int windowSize;
     private final int minWindow;
@@ -28,8 +27,8 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
     private final long cooldownMs;
 
     private KeyValueStore<String, List<Double>> store;
+    private KeyValueStore<String, Long> cooldownStore;
     private ProcessorContext<String, PeakEvent> context;
-    private final Map<String, Long> lastPeakTs = new HashMap<>();
     private long processedCount;
     private long peaksCount;
 
@@ -43,8 +42,9 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
 
     @Override
     public void init(ProcessorContext<String, PeakEvent> context) {
-        this.context = context;
-        this.store   = context.getStateStore(STORE_NAME);
+        this.context       = context;
+        this.store         = context.getStateStore(STORE_NAME);
+        this.cooldownStore = context.getStateStore(COOLDOWN_STORE_NAME);
     }
 
     @Override
@@ -69,7 +69,7 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
 
             if (valueKwh > upperFence) {
                 long now = record.timestamp();
-                Long last = lastPeakTs.get(key);
+                Long last = cooldownStore.get(key);
                 if (last == null || now - last >= cooldownMs) {
                     double level = valueKwh - upperFence;
                     context.forward(new Record<>(
@@ -77,7 +77,7 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
                         new PeakEvent(reading.getHousehold(), reading.getRoom(), reading.getUtcTimestamp(), level),
                         now
                     ));
-                    lastPeakTs.put(key, now);
+                    cooldownStore.put(key, now);
                     log.debug("peak_detected key={} level={} fence={}", key, level, upperFence);
                     peaksCount++;
                 }

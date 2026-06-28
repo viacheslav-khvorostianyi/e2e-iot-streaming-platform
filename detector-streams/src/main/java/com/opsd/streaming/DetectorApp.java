@@ -72,6 +72,14 @@ public class DetectorApp {
             );
         topology.addStateStore(storeBuilder, "iqr-detector");
 
+        StoreBuilder<KeyValueStore<String, Long>> cooldownStoreBuilder =
+            Stores.keyValueStoreBuilder(
+                Stores.persistentKeyValueStore(IqrDetectorProcessor.COOLDOWN_STORE_NAME),
+                Serdes.String(),
+                Serdes.Long()
+            );
+        topology.addStateStore(cooldownStoreBuilder, "iqr-detector");
+
         topology.addSink(
             "peaks-sink",
             config.outputTopic(),
