@@ -47,11 +47,12 @@ def create_app() -> FastAPI:
     )
 
     @app.get("/api/peaks", response_model=PeaksResponse)
-    def api_peaks(store: PeakStore = Depends(get_store), household: str | None = None) -> PeaksResponse:
-        return aggregate(store.snapshot(), household_filter=household)
+    def api_peaks(store: PeakStore = Depends(get_store)) -> PeaksResponse:
+        snapshot, total_seen = store.snapshot()
+        return aggregate(snapshot, total_seen)
 
     @app.get("/")
     def index() -> FileResponse:
-        return FileResponse(_INDEX_HTML)
+        return FileResponse(_INDEX_HTML, headers={"Cache-Control": "no-cache"})
 
     return app
