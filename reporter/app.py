@@ -53,6 +53,6 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     def index() -> FileResponse:
-        return FileResponse(_INDEX_HTML)
+        return FileResponse(_INDEX_HTML, headers={"Cache-Control": "no-cache"})
 
     return app

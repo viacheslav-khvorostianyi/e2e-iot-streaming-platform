@@ -28,6 +28,12 @@
     th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #21262d; }
     th { color: #8b949e; font-weight: 600; }
     td.num { text-align: right; font-variant-numeric: tabular-nums; }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+    .panel-head h2 { margin: 0; }
+    .seg { display: inline-flex; gap: 4px; }
+    .seg button { background: #21262d; color: #8b949e; border: 1px solid #30363d; border-radius: 6px;
+                  padding: 3px 10px; font-size: 12px; cursor: pointer; font-family: inherit; }
+    .seg button.active { background: #1f6f3f; color: #e6e6e6; border-color: #2ea043; }
     @media (max-width: 900px) { .cards, .charts { grid-template-columns: 1fr; } }
   </style>
 </head>
@@ -43,7 +49,17 @@
       <div class="card"><div class="label">Max level (kWh)</div><div class="value" id="c-max">0</div></div>
     </div>
     <div class="charts">
-      <div class="panel"><h2>Peaks over time (ingestion time)</h2><canvas id="timeline"></canvas></div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Peaks over time (ingestion time)</h2>
+          <div class="seg" id="window">
+            <button data-min="1">1m</button>
+            <button data-min="5" class="active">5m</button>
+            <button data-min="60">1h</button>
+          </div>
+        </div>
+        <canvas id="timeline"></canvas>
+      </div>
       <div class="panel"><h2>Peaks per room</h2><canvas id="perRoom"></canvas></div>
       <div class="panel"><h2>Peaks by hour of day (ingestion time)</h2><canvas id="byHour"></canvas></div>
       <div class="panel"><h2>Peaks by building type</h2><canvas id="byType"></canvas></div>
@@ -63,14 +79,45 @@
     Chart.defaults.color = T;
     Chart.defaults.borderColor = G;
 
+    const utcHM = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" });
+    const utcHMS = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: "UTC" });
+
+    let windowMin = 5;
+    let lastData = null;
+
     const timeline = new Chart(document.getElementById("timeline"), {
       type: "line",
       data: { datasets: [{ label: "peaks", data: [], borderColor: C,
               backgroundColor: "rgba(108,192,112,.15)", fill: true, tension: .25, pointRadius: 0 }] },
-      options: { responsive: true, plugins: { legend: { display: false } },
-        scales: { x: { type: "time", time: { unit: "minute" }, grid: { color: G } },
+      options: { responsive: true,
+        plugins: { legend: { display: false },
+          tooltip: { callbacks: { title: (items) => utcHMS.format(items[0].parsed.x) + " UTC" } } },
+        scales: { x: { type: "time", time: { unit: "minute" },
+                    ticks: { callback: (v) => (windowMin <= 1 ? utcHMS : utcHM).format(v), maxRotation: 0 },
+                    grid: { color: G } },
                   y: { beginAtZero: true, grid: { color: G } } } }
     });
+
+    const winEl = document.getElementById("window");
+    winEl.addEventListener("click", (e) => {
+      const btn = e.target.closest("button");
+      if (!btn) return;
+      windowMin = Number(btn.dataset.min);
+      [...winEl.children].forEach((b) => b.classList.toggle("active", b === btn));
+      if (lastData) renderTimeline(lastData);
+    });
+
+    function renderTimeline(d) {
+      const now = Date.now();
+      const cutoff = now - windowMin * 60000;
+      const pts = d.timeline.filter((p) => p.t >= cutoff).map((p) => ({ x: p.t, y: p.count }));
+      const x = timeline.options.scales.x;
+      x.min = cutoff;
+      x.max = pts.length ? Math.max(now, pts[pts.length - 1].x) : now;
+      x.time.unit = windowMin <= 1 ? "second" : "minute";
+      timeline.data.datasets[0].data = pts;
+      timeline.update("none");
+    }
 
     const perRoom = new Chart(document.getElementById("perRoom"), {
       type: "bar",
@@ -96,12 +143,12 @@
     });
 
     function render(d) {
+      lastData = d;
       document.getElementById("c-total").textContent = d.total.toLocaleString();
       document.getElementById("c-rate").textContent = d.peaks_per_min;
       document.getElementById("c-max").textContent = d.max_level;
 
-      timeline.data.datasets[0].data = d.timeline.map(p => ({ x: p.t, y: p.count }));
-      timeline.update("none");
+      renderTimeline(d);
 
       perRoom.data.labels = Object.keys(d.per_room);
       perRoom.data.datasets[0].data = Object.values(d.per_room);
