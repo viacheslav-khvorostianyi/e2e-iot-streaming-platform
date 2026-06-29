@@ -75,7 +75,10 @@
         <canvas id="timeline"></canvas>
       </div>
       <div class="panel"><h2>Peaks per room</h2><canvas id="perRoom"></canvas></div>
-      <div class="panel"><h2>Peaks by hour of day (ingestion time)</h2><canvas id="byHour"></canvas></div>
+       <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="panel"><h2>Peaks by hour of day</h2><canvas id="byHour"></canvas></div>
+        <div class="panel"><h2>Peaks per household</h2><canvas id="perHousehold"></canvas></div>
+       </div>
       <div class="panel"><h2>Peaks by building type</h2><canvas id="byType"></canvas></div>
     </div>
     <div class="panel">

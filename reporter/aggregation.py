@@ -2,7 +2,7 @@ import time
 from collections import Counter
 from datetime import datetime, timezone
 
-from domain import building_type, level
+from domain import building_type
 from schemas import PeaksResponse, TimelinePoint, to_recent
 from store import StampedEvent
 
@@ -16,7 +16,8 @@ LEVEL_ROUND_DIGITS = 4
 def aggregate(snapshot: list[StampedEvent], total_seen: int) -> PeaksResponse:
     events = [event for _, event in snapshot]
     per_room = Counter(event.room for event in events)
-    by_type = Counter(building_type(event.room) for event in events)
+    per_household = Counter(event.household for event in events)
+    by_type = Counter(building_type(event.household) for event in events)
 
     buckets: Counter[int] = Counter()
     by_hour = [0] * 24
@@ -31,7 +32,7 @@ def aggregate(snapshot: list[StampedEvent], total_seen: int) -> PeaksResponse:
     return PeaksResponse(
         total=total_seen,
         peaks_per_min=peaks_per_min,
-        max_level=round(max((level(e) for e in events), default=0.0), LEVEL_ROUND_DIGITS),
+        max_level=round(max((e.level for e in events), default=0.0), LEVEL_ROUND_DIGITS),
         per_room=dict(sorted(per_room.items())),
         per_household=dict(sorted(per_household.items())),
         by_type=dict(sorted(by_type.items())),
