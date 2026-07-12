@@ -1,0 +1,167 @@
+# ===================================================================================
+# A Cool Ruff Configuration | https://github.com/astral-sh/ruff
+# ===================================================================================
+#
+# This file is a comprehensive Ruff configuration that enforces a strict, modern,
+# and consistent Python coding style. It's designed to be a "one-stop shop"
+# for linting and formatting, replacing Black, isort, flake8, and many plugins.
+#
+# To use it, place this file as `ruff.toml` or `.ruff.toml` in your project root.
+# You can also merge it into your `pyproject.toml` under the `[tool.ruff]` section.
+#
+
+# -----------------------------------------------------------------------------------
+# Core Settings
+# -----------------------------------------------------------------------------------
+
+# Set the minimum Python version to target. Ruff will not suggest features
+# that are unavailable in this version. "py38" is a safe, modern default.
+target-version = "py311"
+
+# A list of file patterns to include when linting.
+# By default, Ruff lints *.py, *.pyi, and pyproject.toml.
+# Adding `*.ipynb` is great for projects with Jupyter Notebooks.
+include = ["*.py", "*.pyi", "pyproject.toml", "*.ipynb"]
+
+# A list of file patterns to exclude from linting and formatting.
+# This extends Ruff's default exclusions with common project folders.
+extend-exclude = [
+    ".mypy_cache",
+    ".pytest_cache",
+    "docs/",
+    "site/",
+    "htmlcov/",
+    "build/",
+    "dist/",
+]
+
+# Enable preview mode to opt in to the latest rules, formatter style changes,
+# and other unstable features. This is for those who like to live on the edge!
+preview = true
+
+# The line length to aim for. Ruff's default of 88 is the same as Black's.
+line-length = 88
+
+
+# -----------------------------------------------------------------------------------
+# Formatter Settings (Replaces Black)
+# -----------------------------------------------------------------------------------
+[format]
+# Use double quotes for strings. Options: "double", "single".
+quote-style = "double"
+
+# Use spaces for indentation. Options: "space", "tab".
+indent-style = "space"
+
+# Respect magic trailing commas. When this is `false` (like Black), a trailing
+# comma on an expression indicates it should be expanded onto multiple lines.
+skip-magic-trailing-comma = false
+
+# Automatically detect the appropriate line ending. Options: "auto", "lf", "crlf".
+line-ending = "auto"
+
+
+# -----------------------------------------------------------------------------------
+# Linter Rule Selection (The Heart of Ruff)
+# -----------------------------------------------------------------------------------
+[lint]
+# Select the rule sets to enable. This is the most important section.
+# Start with a good base and add more as you go.
+# See the full list of rules here: https://docs.astral.sh/ruff/rules/
+select = [
+    # --- Core & Essential Checks ---
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes (catches undefined names, unused imports, etc.)
+
+    # --- Import Sorting & Styling (replaces isort) ---
+    "I",   # isort
+
+    # --- Modernization & Best Practices ---
+    "UP",  # pyupgrade (upgrades syntax to newer Python versions)
+    "B",   # flake8-bugbear (finds likely bugs and design problems)
+    "C4",  # flake8-comprehensions (helps write more idiomatic comprehensions)
+    "SIM", # flake8-simplify (simplifies complex code structures)
+
+    # --- Security & Robustness ---
+    "S",   # flake8-bandit (finds common security issues)
+    "A",   # flake8-builtins (prevents shadowing Python builtins)
+    "PTH", # flake8-use-pathlib (enforces using `pathlib` over `os.path`)
+    "TRY", # tryceratops (rules for exceptional exception handling)
+
+    # --- Naming, Docstrings, and Readability ---
+    "N",   # pep8-naming
+    "D",   # pydocstyle (enforces docstring conventions)
+    "T20", # flake8-print (flags `print` and `pprint` calls)
+
+    # --- Ruff-specific Rules ---
+    "RUF", # Ruff's own rules, often for performance or clarity
+]
+
+# Disable specific rules that might be overly pedantic or conflict with project style.
+ignore = [
+    "B905",  # `zip()` without `strict=`. Can be noisy in projects not on Python 3.10+.
+    "S101",  # `assert` statements. We want to allow asserts in tests.
+    "D100",  # Missing docstring in public module.
+    "D104",  # Missing docstring in public package.
+    "D107",  # Missing docstring in `__init__`.
+    "E501",  # Line too long. The formatter handles this, so the linter doesn't need to.
+    "D103",
+    "D102",
+    "D101",
+    "D106",
+]
+
+# Allow all rules to be autofixed. This is powerful but use with care.
+fixable = ["ALL"]
+# Rules that should never be auto-fixed, even if a fix is available.
+unfixable = []
+
+
+# -----------------------------------------------------------------------------------
+# Plugin-Specific Configurations
+# -----------------------------------------------------------------------------------
+
+# Settings for import sorting (isort).
+[lint.isort]
+# A list of modules that should be considered "first-party" (your own code).
+known-first-party = ["master", "secondary_worker", "shared", "api", "tests"]
+
+# Combine "as" imports on the same line (e.g., `import foo as f, bar as b`)
+combine-as-imports = true
+
+# Force all imports to be on separate lines (one import per line)
+force-single-line = false
+
+# Use parentheses for line continuation instead of backslashes
+force-wrap-aliases = true
+
+# Split imports with multiple members across multiple lines
+split-on-trailing-comma = true
+
+# Import sections order: FUTURE, STDLIB, THIRDPARTY, FIRSTPARTY, LOCALFOLDER
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+# Add a blank line between import sections
+lines-after-imports = 2
+
+# Sort imports within their section (case-insensitive)
+force-sort-within-sections = true
+
+# Settings for docstring linting (pydocstyle).
+[lint.pydocstyle]
+# Use Google-style docstrings. Options: "google", "numpy", "pep257".
+convention = "google"
+
+# Settings for flake8-bugbear.
+[lint.flake8-bugbear]
+# Allow using `B008` (function calls in default arguments) for FastAPI dependencies.
+# This shows how to tailor rules for specific frameworks.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+
+# Per-file ignores allow you to disable rules for specific files or directories.
+[lint.per-file-ignores]
+# In tests, it's common to use asserts, import from `*`, and have short docstrings.
+"tests/**/*.py" = ["S101", "F403", "F405", "D103"]
+# In `__init__.py` files, unused imports are often used to expose an API.
+"__init__.py" = ["F401"]
