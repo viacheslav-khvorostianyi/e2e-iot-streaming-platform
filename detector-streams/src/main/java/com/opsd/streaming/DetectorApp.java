@@ -4,7 +4,7 @@ import com.opsd.streaming.config.DetectorConfig;
 import com.opsd.streaming.model.HouseholdReading;
 import com.opsd.streaming.model.PeakEvent;
 import com.opsd.streaming.processor.IqrDetectorProcessor;
-import com.opsd.streaming.serde.DoubleListSerde;
+import com.opsd.streaming.serde.DoubleDequeSerde;
 import com.opsd.streaming.serde.HouseholdReadingSerde;
 import com.opsd.streaming.serde.PeakEventSerde;
 import org.apache.kafka.common.serialization.Serdes;
@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
-import java.util.List;
+import java.util.Deque;
 import java.util.Properties;
 
 public class DetectorApp {
@@ -64,11 +64,11 @@ public class DetectorApp {
             "readings-source"
         );
 
-        StoreBuilder<KeyValueStore<String, List<Double>>> storeBuilder =
+        StoreBuilder<KeyValueStore<String, Deque<Double>>> storeBuilder =
             Stores.keyValueStoreBuilder(
                 Stores.persistentKeyValueStore(IqrDetectorProcessor.STORE_NAME),
                 Serdes.String(),
-                new DoubleListSerde()
+                new DoubleDequeSerde()
             );
         topology.addStateStore(storeBuilder, "iqr-detector");
 
