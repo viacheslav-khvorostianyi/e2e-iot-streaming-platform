@@ -11,8 +11,8 @@ import org.apache.kafka.streams.state.KeyValueStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 public class IqrDetectorProcessor implements Processor<String, HouseholdReading, String, PeakEvent> {
 
@@ -26,9 +26,10 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
     private final String detectionFeed;
     private final long cooldownMs;
 
-    private KeyValueStore<String, List<Double>> store;
+    private KeyValueStore<String, Deque<Double>> store;
     private KeyValueStore<String, Long> cooldownStore;
     private ProcessorContext<String, PeakEvent> context;
+    private final Percentile percentile = new Percentile();
     private long processedCount;
     private long peaksCount;
 
@@ -55,19 +56,24 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
         String key      = record.key();
         double valueKwh = reading.getValueKwh();
 
-        List<Double> window = store.get(key);
-        if (window == null) window = new ArrayList<>();
+        // Deque: O(1) eviction at the head (ArrayList.remove(0) was an O(n) shift
+        // on every record). A fixed-size primitive double[] ring buffer would
+        // additionally avoid boxing and per-record allocations — future work.
+        Deque<Double> window = store.get(key);
+        if (window == null) window = new ArrayDeque<>(windowSize + 1);
+
+        boolean isPeak = false;
 
         // evaluate-before-append: outlier cannot inflate its own threshold
         if (window.size() >= minWindow) {
             double[] arr = window.stream().mapToDouble(Double::doubleValue).toArray();
-            Percentile calc = new Percentile();
-            calc.setData(arr);
-            double q3         = calc.evaluate(75.0);
-            double iqr        = q3 - calc.evaluate(25.0);
+            percentile.setData(arr);
+            double q3         = percentile.evaluate(75.0);
+            double iqr        = q3 - percentile.evaluate(25.0);
             double upperFence = q3 + sigma * iqr;
 
             if (valueKwh > upperFence) {
+                isPeak = true;
                 long now = record.timestamp();
                 Long last = cooldownStore.get(key);
                 if (last == null || now - last >= cooldownMs) {
@@ -84,9 +90,13 @@ public class IqrDetectorProcessor implements Processor<String, HouseholdReading,
             }
         }
 
-        window.add(valueKwh);
-        if (window.size() > windowSize) window.remove(0);
-        store.put(key, window);
+        // peaks are kept out of the baseline: otherwise each anomaly inflates
+        // Q3/IQR and progressively raises the fence, masking later anomalies
+        if (!isPeak) {
+            window.addLast(valueKwh);
+            if (window.size() > windowSize) window.removeFirst();
+            store.put(key, window);
+        }
         processedCount++;
     }
 

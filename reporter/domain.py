@@ -1,5 +1,6 @@
-import re
 from dataclasses import dataclass
+import re
+
 
 _TYPE_RE = re.compile(r"^([a-zA-Z]+)")
 

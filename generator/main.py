@@ -1,13 +1,14 @@
+from itertools import batched
 import signal
 import threading
 import time
 
 import structlog
-from confluent_kafka import KafkaException, Producer
 
 from config import settings
-from loader import iter_readings
-from models import HouseholdReading, to_json_bytes
+from loader import readings_from_csv
+from producer import build_producer, publish_batch
+
 
 log = structlog.get_logger()
 
@@ -21,20 +22,18 @@ def _handle_signal(sig, frame):
     _shutdown.set()
 
 
-def _delivery_cb(err, msg):
-    if err:
-        log.error("delivery_failed", error=str(err), topic=msg.topic())
+def stream_readings(producer) -> tuple[int, int]:
+    """One pass over the data source: publish every reading, paced to EVENTS_PER_SECOND."""
+    messages = 0
+    sent_bytes = 0
+    for batch in batched(readings_from_csv(settings.data_source), BATCH_SIZE):
+        if _shutdown.is_set():
+            break
 
-
-def build_producer() -> Producer:
-    return Producer(
-        {
-            "bootstrap.servers": settings.bootstrap_servers,
-            "acks": "all",
-            "enable.idempotence": True,
-            "linger.ms": 5,
-        }
-    )
+        sent_bytes += publish_batch(producer, batch)
+        messages += len(batch)
+        time.sleep(len(batch) / settings.events_per_second)
+    return messages, sent_bytes
 
 
 def run():
@@ -55,25 +54,9 @@ def run():
     )
 
     while not _shutdown.is_set():
-        batch: list[tuple[HouseholdReading, str]] = []
-
-        for reading, key in iter_readings(settings.data_source):
-            if _shutdown.is_set():
-                break
-
-            batch.append((reading, key))
-
-            if len(batch) >= BATCH_SIZE:
-                _flush_batch(producer, batch)
-                total_messages += len(batch)
-                total_bytes += sum(len(to_json_bytes(r)) for r, _ in batch)
-                time.sleep(len(batch) / settings.events_per_second)
-                batch.clear()
-
-        if batch:
-            _flush_batch(producer, batch)
-            total_messages += len(batch)
-            total_bytes += sum(len(to_json_bytes(r)) for r, _ in batch)
+        messages, sent_bytes = stream_readings(producer)
+        total_messages += messages
+        total_bytes += sent_bytes
 
         if not settings.loop:
             break
@@ -84,20 +67,6 @@ def run():
         total_messages=total_messages,
         total_bytes=total_bytes,
     )
-
-
-def _flush_batch(producer: Producer, batch: list[tuple[HouseholdReading, str]]):
-    for reading, key in batch:
-        try:
-            producer.produce(
-                settings.topic,
-                key=key.encode("utf-8"),
-                value=to_json_bytes(reading),
-                on_delivery=_delivery_cb,
-            )
-        except KafkaException as e:
-            log.error("produce_failed", error=str(e))
-    producer.poll(0)
 
 
 if __name__ == "__main__":

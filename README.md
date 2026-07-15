@@ -70,6 +70,21 @@ docker compose exec broker kafka-console-consumer \
 
 ---
 
+## Running Tests
+
+Generator tests need the dev dependencies (runtime deps + pytest):
+
+```bash
+cd generator
+pip install -r requirements-dev.txt
+pytest tests -v
+```
+
+No Kafka broker required — producer tests run against librdkafka's built-in
+in-process mock cluster (`test.mock.num.brokers`).
+
+---
+
 ## Message Formats
 
 **`household.power.readings`** — key: `household:room`

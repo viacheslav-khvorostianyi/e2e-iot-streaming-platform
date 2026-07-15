@@ -1,16 +1,17 @@
-import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
+import threading
 
-import structlog
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import FileResponse
+import structlog
 
 from aggregation import aggregate
 from config import settings
 from consumer import consume_loop
 from schemas import PeaksResponse
 from store import PeakStore
+
 
 log = structlog.get_logger()
 
