@@ -1,12 +1,13 @@
 import json
 import threading
 
-import structlog
 from confluent_kafka import OFFSET_BEGINNING, Consumer, KafkaError, KafkaException
+import structlog
 
 from config import settings
 from domain import PeakEvent, parse_peak
 from store import PeakStore
+
 
 log = structlog.get_logger()
 
@@ -26,16 +27,14 @@ def decode(raw: bytes) -> PeakEvent | None:
 
 
 def build_consumer() -> Consumer:
-    return Consumer(
-        {
-            "bootstrap.servers": settings.bootstrap_servers,
-            "group.id": settings.group_id,
-            "auto.offset.reset": "earliest" if settings.from_beginning else "latest",
-            # display-only consumer: never commit, so the view rebuilds from
-            # scratch on every restart instead of resuming a stale offset
-            "enable.auto.commit": False,
-        }
-    )
+    return Consumer({
+        "bootstrap.servers": settings.bootstrap_servers,
+        "group.id": settings.group_id,
+        "auto.offset.reset": "earliest" if settings.from_beginning else "latest",
+        # display-only consumer: never commit, so the view rebuilds from
+        # scratch on every restart instead of resuming a stale offset
+        "enable.auto.commit": False,
+    })
 
 
 def _on_assign(consumer: Consumer, partitions) -> None:

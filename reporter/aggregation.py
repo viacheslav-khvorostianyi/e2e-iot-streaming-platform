@@ -1,10 +1,11 @@
-import time
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+import time
 
 from domain import building_type
 from schemas import PeaksResponse, TimelinePoint, to_recent
 from store import StampedEvent
+
 
 TIMELINE_BUCKET_SEC = 5
 RECENT_LIMIT = 50
@@ -24,7 +25,7 @@ def aggregate(snapshot: list[StampedEvent], total_seen: int) -> PeaksResponse:
     for timestamp, _ in snapshot:
         bucket = int(timestamp // TIMELINE_BUCKET_SEC) * TIMELINE_BUCKET_SEC
         buckets[bucket] += 1
-        by_hour[datetime.fromtimestamp(timestamp, tz=timezone.utc).hour] += 1
+        by_hour[datetime.fromtimestamp(timestamp, tz=UTC).hour] += 1
 
     now = time.time()
     peaks_per_min = sum(1 for ts, _ in snapshot if ts >= now - PEAKS_WINDOW_SEC)
@@ -32,7 +33,9 @@ def aggregate(snapshot: list[StampedEvent], total_seen: int) -> PeaksResponse:
     return PeaksResponse(
         total=total_seen,
         peaks_per_min=peaks_per_min,
-        max_level=round(max((e.level for e in events), default=0.0), LEVEL_ROUND_DIGITS),
+        max_level=round(
+            max((e.level for e in events), default=0.0), LEVEL_ROUND_DIGITS
+        ),
         per_room=dict(sorted(per_room.items())),
         per_household=dict(sorted(per_household.items())),
         by_type=dict(sorted(by_type.items())),

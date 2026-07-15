@@ -1,8 +1,9 @@
+from collections import deque
 import threading
 import time
-from collections import deque
 
 from domain import PeakEvent
+
 
 StampedEvent = tuple[float, PeakEvent]
 
